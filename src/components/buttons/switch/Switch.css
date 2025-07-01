@@ -1,0 +1,17 @@
+.button {
+    width: 150px;
+    height: 60px;
+
+    font-size: 20px;
+    font-weight: 600;
+
+    background-color: lightblue;
+
+    transition: 0.5s background-color;
+
+    cursor: pointer;
+}
+
+.button:hover {
+    background-color: rgb(193, 223, 233);
+}
