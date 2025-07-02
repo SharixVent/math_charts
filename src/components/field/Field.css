@@ -1,0 +1,16 @@
+.label {
+    margin-top: 2rem;
+    
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+
+    gap: 15px;
+
+    font-size: 1.5rem;
+}
+
+.label input {
+    height: 1.6rem;
+    padding-left: 10px;
+}
