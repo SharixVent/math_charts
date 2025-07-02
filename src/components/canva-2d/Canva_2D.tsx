@@ -30,14 +30,12 @@ import {
 //     return null;
 // };
 
+interface Props {
+    data: {x: number; y: number}[]
+}
 
-export const Canvas_2D: React.FC = () => {
 
-    const data = Array.from({ length: 100 }, (_,index) => {
-        const x: number = index * 0.1;
-        const y: number = Math.sin(x);
-        return {x, y}
-    })
+export const Canvas_2D: React.FC<Props> = ({data}) => {
     
     return (
         <ResponsiveContainer width="80%" height={600}>  
