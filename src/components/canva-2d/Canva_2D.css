@@ -1,0 +1,33 @@
+.custom-tooltip {
+    background: #cbb1b17f;
+
+    height: 200px;
+    width: 400px;
+}
+
+.label-tooltip {
+    font-size:1rem;
+
+    position: absolute;
+    top: 0;
+    left: 0;
+
+}
+
+.payload-tooltip {
+    font-size:1rem;
+
+    position: absolute;
+    top: 30px;
+    left: 0;
+
+}
+
+.desc-tooltip {
+    font-size:1rem;
+
+    position: absolute;
+    top: 60px;
+    left: 0;
+
+}
