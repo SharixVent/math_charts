@@ -1,22 +1,20 @@
-import React, { useState } from 'react';
+import React from 'react';
 import './Field.css'
 
 interface Props {
-    title: string,
-    placeholder: string,
+    title: string;
+    placeholder: string;
     width: number;
-    onSumbit: () => void
+    name: string;
 }
 
-export const Fields: React.FC<Props> = ({title, placeholder, width}) => {
-
-    const [valueInput, setValueInput] = useState("");
+export const Field: React.FC<Props> = ({title, placeholder, width, name}) => {
 
     return (
         <div className='label'>
             <label htmlFor="">{title}</label>
-            <input style={{width: width}} type="text" placeholder={placeholder} value={valueInput} />
+            <input name={name} style={{width: width}} type="text" placeholder={placeholder}/>
         </div>
     )
 }
-export default Fields;
+export default Field;
