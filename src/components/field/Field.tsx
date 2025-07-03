@@ -1,23 +1,19 @@
-import React, { useState, type Dispatch, type SetStateAction } from 'react';
+import React from 'react';
 import './Field.css'
 
 interface Props {
-    title: string,
-    placeholder: string,
+    title: string;
+    placeholder: string;
     width: number;
-    data: {x: number; y: number}[]
-    setData: Dispatch<SetStateAction<{
-        x: number;
-        y: number;
-    }[]>>
+    name: string;
 }
 
-export const Field: React.FC<Props> = ({title, placeholder, width, data, setData}) => {
+export const Field: React.FC<Props> = ({title, placeholder, width, name}) => {
 
     return (
         <div className='label'>
             <label htmlFor="">{title}</label>
-            <input style={{width: width}} type="text" placeholder={placeholder} value={data} {setData}}/>
+            <input name={name} style={{width: width}} type="text" placeholder={placeholder}/>
         </div>
     )
 }
