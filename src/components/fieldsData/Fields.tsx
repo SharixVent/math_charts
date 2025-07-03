@@ -1,16 +1,24 @@
-import React from 'react';
+import React, { type Dispatch, type SetStateAction } from 'react';
 import Field from "../field/Field.tsx";
 
-export const FieldsData: React.FC = () => {
+interface Props {
+    handleSumbit: (e: React.FormEvent<HTMLFormElement>) => void;
+    // data: {x: number; y: number}[]
+    // setData: Dispatch<SetStateAction<{
+    //     x: number;
+    //     y: number;
+    // }[]>>
+}
 
-    const callback = (value: number) => {
-        console.log(value)
-    }
-
+export const FieldsData: React.FC<Props> = ({handleSumbit}) => {
 
     return (
         <>
-        
+            <form onSubmit={handleSumbit}>
+                <Field title='Range:' placeholder='...' width={300} name="range"/>
+                <button type="submit">Submit form</button>
+            </form>
+            
         </>
     );
 };
