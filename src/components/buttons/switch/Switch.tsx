@@ -10,14 +10,12 @@ export const Switch: React.FC<SwitchProps> = ({text_switch, onClick}) => {
 
     return (
         <>
-        {/* <div className='button-cont'> */}
             <button
-                className='button-switch'
+                className='button'
                 onClick={onClick}
             >
             {text_switch}
             </button>
-        {/* </div> */}
         </>
     );
 };
