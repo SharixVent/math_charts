@@ -25,20 +25,3 @@ body {
 .title {
     font-size: 30px;
 }
-
-.sectors {
-    display: flex;
-    flex-direction: row;
-}
-
-.sector {
-    text-align: center;
-}
-
-.sector:first-child {
-    width: 65%;
-}
-
-.sector:last-child {
-    width: 35%;
-}

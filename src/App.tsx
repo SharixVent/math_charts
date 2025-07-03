@@ -12,6 +12,7 @@ function App() {
 
             {/* Sectors */}
             <Sectors/>
+            
         </>
     );
 };
