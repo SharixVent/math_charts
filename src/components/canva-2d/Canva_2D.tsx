@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React from 'react';
 import Plot from 'react-plotly.js';
 
 interface Props {
@@ -12,17 +12,18 @@ export const Canvas_2D: React.FC<Props> = ({data}) => {
 
     return (
         <Plot
-      data={[
-        {
-          x,
-          y,
-          type: 'scatter',
-          mode: 'lines',
-          marker: {color: 'blue'},
-        },
-      ]}
-      layout={{width: 600, height: 400}}
-    />
+            data={[
+                {
+                x,
+                y,
+                type: 'scatter',
+                mode: 'lines',
+                marker: {color: 'blue'},
+                },
+            ]}
+            layout={{autosize: true}}
+            style={{width:'100%', height: '100%'}}
+        />
     );
 };
 

@@ -7,10 +7,10 @@
     text-align: center;
 }
 
-.sector:first-child {
+.sector-1 {
     width: 65%;
 }
 
-.sector:last-child {
+.sector-2 {
     width: 35%;
 }

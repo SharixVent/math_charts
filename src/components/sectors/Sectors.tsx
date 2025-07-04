@@ -4,6 +4,7 @@ import Canvas_3D from '../canva-3d/Canva_3D';
 import SwitchButton from '../buttons/switch/Switch';
 import FieldsData from '../fieldsData/Fields';
 import Popup from '../popup/Popup';
+import { parse as parse2, eval as eval2} from 'expression-eval';
 import './Sectors.css'
 
 export const Sectors: React.FC = () => {
@@ -12,15 +13,85 @@ export const Sectors: React.FC = () => {
     const [switchT, setSwitchT] = useState<"2D" | "3D">("2D");
     const [showPopup, setShowPopup] = useState(false);
     const [data, setData] = useState<{x: number; y: number}[]>();
+
+    const customReplacements: Array<{
+        regex: RegExp;
+        replacer: (match: string, ...groups: string[]) => string;
+    }> = [
+        {
+            regex: /(\w+|\d+(\.\d+)?|\))\s*\^\s*(\w+|\d+(\.\d+)?|\()/g,
+            replacer: (_match, g1, _g2, g3) => `pow(${g1},${g3})`,
+        },
+        {
+            regex: /(\d+(\.\d+)?)([a-zA-Z(])/g,
+            replacer: (_match, num, _g2, variable) => `${num}*${variable}`,
+        },
+    ];
+
+    const functionDict: Record<string, (...args: number[]) => number> = {
+        sin: Math.sin,
+        cos: Math.cos,
+        tan: Math.tan,
+        log: Math.log,
+        exp: Math.exp,
+        sqrt: Math.sqrt,
+        abs: Math.abs,
+        pow: Math.pow,
+    };
+
+    const regexFunctionPairs = [
+        { name: 'sin', regex: /\bsin\s*\(/, fn: Math.sin },
+        { name: 'cos', regex: /\bcos\s*\(/, fn: Math.cos },
+        { name: 'tan', regex: /\btan\s*\(/, fn: Math.tan },
+        { name: 'log', regex: /\blog\s*\(/, fn: Math.log },
+        { name: 'exp', regex: /\bexp\s*\(/, fn: Math.exp },
+        { name: 'sqrt', regex: /\bsqrt\s*\(/, fn: Math.sqrt },
+        { name: 'abs', regex: /\babs\s*\(/, fn: Math.abs },
+        { name: 'pow', regex: /\bpow\s*\(/, fn: Math.pow },
+    ];
+
     useEffect(() => {
-        const length = Number(formJson.range) || 100;
-        const newData = Array.from({ length }, (_, index) => {
-            const x = index * 0.1;
-            const y = Math.sin(x);
-            return { x, y };
+        const length_from = Number(formJson.range_from || 0);
+        const length_to = Number(formJson.range_to || 100);
+        const step = Number(formJson.step || 0.1);
+        let inputFunction = formJson.function || '';
+
+        for (const { regex, replacer } of customReplacements) {
+            inputFunction = inputFunction.replace(regex, replacer as any);
+        }
+
+        let parsedFunction;
+        try {
+            parsedFunction = parse2(inputFunction);
+        } catch (e) {
+            setData([]);
+            return;
+        }
+
+        const usedFunctions = regexFunctionPairs.filter(pair => pair.regex.test(inputFunction));
+
+        const context: Record<string, any> = {};
+        usedFunctions.forEach(pair => {
+            context[pair.name] = pair.fn;
         });
+
+        const newData = Array.from(
+            { length: Math.floor((length_to - length_from) / step) + 1 },
+            (_, index) => {
+                const x = length_from + index * step;
+                context.x = x;
+                let y = NaN;
+                try {
+                    y = eval2(parsedFunction, context);
+                } catch {
+                    y = NaN;
+                }
+                return { x, y };
+            }
+        );
         setData(newData);
     }, [formJson]);
+
 
     const handleConfirmSwitch = () => {
         setSwitchT(prev => prev === '2D' ? "3D" : "2D");
@@ -50,11 +121,11 @@ export const Sectors: React.FC = () => {
 
     return (
         <div className="sectors">
-            <div className="sector">
+            <div className="sector-1">
                 {/* Left Sector Canvas */}
                 <Component data={data ?? []}/>
             </div>
-            <div className="sector">
+            <div className="sector-2">
                 {/* Right Sector Fields, Inputs, Buttons, etc. */}
                 <SwitchButton text_switch={switchT} onClick={handleShowPopup}/>
                 <FieldsData handleSumbit={handleSumbit}/>
