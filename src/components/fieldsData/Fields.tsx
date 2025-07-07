@@ -16,37 +16,37 @@ export const FieldsData: React.FC<Props> = ({handleSumbit}) => {
                 <Field 
                     title='Function:' 
                     type="text" 
-                    placeholder='...' 
+                    placeholder='Enter math function example: x^2' 
                     width={300} 
                     name="function"
                 />
                 <Field 
                     title='Range from:' 
                     type="number" 
-                    placeholder='0' 
+                    placeholder='-10' 
                     width={300} 
                     name="range_from"
                 />
                 <Field 
                     title='Range to:' 
                     type="number" 
-                    placeholder='100' 
+                    placeholder='10' 
                     width={300} 
                     name="range_to"
                 />
                 <Field 
                     title='Steps:' 
                     type="range" 
-                    min={0.1} 
+                    min={0.01} 
                     max={1} 
-                    defaultValue={0.1} 
-                    step={0.1} 
+                    defaultValue={0.01} 
+                    step={0.01} 
                     width={300} 
                     name="step"
                     onChange={e => setStep(Number(e.target.value))}
                     />
+                <button style={{marginRight: 200}} type="submit">Submit form</button>
                 <output>{step}</output>
-                <button type="submit">Submit form</button>
             </form>
             
         </div>
