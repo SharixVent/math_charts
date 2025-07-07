@@ -15,29 +15,91 @@ export const Sectors: React.FC = () => {
     const [data, setData] = useState<{x: number; y: number}[]>();
 
     const customReplacements: Array<{
-        regex: RegExp;
-        replacer: (match: string, ...groups: string[]) => string;
+    regex: RegExp;
+    replacer: (match: string, ...groups: string[]) => string;
     }> = [
-        {
-            regex: /(\w+|\d+(\.\d+)?|\))\s*\^\s*(\w+|\d+(\.\d+)?|\()/g,
-            replacer: (_match, g1, _g2, g3) => `pow(${g1},${g3})`,
-        },
-        {
-            regex: /(\d+(\.\d+)?)([a-zA-Z(])/g,
-            replacer: (_match, num, _g2, variable) => `${num}*${variable}`,
-        },
+    // log(x) => log(x)/log(10)
+    {
+        regex: /(?<!log\d*)\blog\s*\(\s*([^)]+?)\s*\)/g,
+        replacer: (_match, expr) => `(log(${expr})/log(10))`,
+    },
+    // log base b: log2(x) => log(x)/log(2)
+    {
+        regex: /log(\d+)\s*\(\s*([^)]+?)\s*\)/g,
+        replacer: (_match, base, expr) => `(log(${expr})/log(${base}))`,
+    },
+    // ln(x) => log(x) (natural logarithm, JS Math.log is natural log)
+    {
+        regex: /ln\s*\(\s*([^)]+?)\s*\)/g,
+        replacer: (_match, expr) => `(log(${expr}))`,
+    },
+    // exponentiation: x^2 => pow(x, 2)
+    {
+        regex: /(\w+|\d+(\.\d+)?|\))\s*\^\s*(\([^)]+\)|\w+|\d+(\.\d+)?)/g,
+        replacer: (_match, base, _g2, exponent) => `pow(${base},${exponent})`,
+    },
+    // sin(x)
+    {
+        regex: /sin\s*\(\s*([^)]+?)\s*\)/g,
+        replacer: (_match, expr) => `sin(${expr})`,
+    },
+    // cos(x)
+    {
+        regex: /cos\s*\(\s*([^)]+?)\s*\)/g,
+        replacer: (_match, expr) => `cos(${expr})`,
+    },
+    // tan(x)
+    {
+        regex: /tan\s*\(\s*([^)]+?)\s*\)/g,
+        replacer: (_match, expr) => `tan(${expr})`,
+    },
+    // sqrt(x)
+    {
+        regex: /sqrt\s*\(\s*([^)]+?)\s*\)/g,
+        replacer: (_match, expr) => `sqrt(${expr})`,
+    },
+    // abs(x)
+    {
+        regex: /abs\s*\(\s*([^)]+?)\s*\)/g,
+        replacer: (_match, expr) => `abs(${expr})`,
+    },
+    // sec(x)
+    {
+        regex: /sec\s*\(\s*([^)]+?)\s*\)/g,
+        replacer: (_match, expr) => `1/cos(${expr})`,
+    },
+    // csc(x)
+    {
+        regex: /csc\s*\(\s*([^)]+?)\s*\)/g,
+        replacer: (_match, expr) => `1/sin(${expr})`,
+    },
+    // cot(x)
+    {
+        regex: /cot\s*\(\s*([^)]+?)\s*\)/g,
+        replacer: (_match, expr) => `1/tan(${expr})`,
+    },
+    //  3x => 3*x, 2(x+1) => 2*(x+1)
+    {
+        regex: /(?<![a-zA-Z])(\d+(\.\d+)?)([a-zA-Z(])/g,
+        replacer: (_match, num, _g2, variable) => `${num}*${variable}`,
+    },
+    //  x(x+1) => x*(x+1)
+    {
+        regex: /\b(?!sin|cos|tan|log|ln|sqrt|abs|pow|sec|csc|cot)([a-zA-Z])\s*(\()/g,
+        replacer: (_match, varName, paren) => `${varName}*${paren}`,
+    },
+    // pi => Math.PI
+    {
+        regex: /\bpi\b/gi,
+        replacer: () => `PI`,
+    },
+    // e => Math.E
+    {
+        regex: /\be\b/g,
+        replacer: () => `E`,
+    },
     ];
 
-    const functionDict: Record<string, (...args: number[]) => number> = {
-        sin: Math.sin,
-        cos: Math.cos,
-        tan: Math.tan,
-        log: Math.log,
-        exp: Math.exp,
-        sqrt: Math.sqrt,
-        abs: Math.abs,
-        pow: Math.pow,
-    };
 
     const regexFunctionPairs = [
         { name: 'sin', regex: /\bsin\s*\(/, fn: Math.sin },
@@ -48,24 +110,31 @@ export const Sectors: React.FC = () => {
         { name: 'sqrt', regex: /\bsqrt\s*\(/, fn: Math.sqrt },
         { name: 'abs', regex: /\babs\s*\(/, fn: Math.abs },
         { name: 'pow', regex: /\bpow\s*\(/, fn: Math.pow },
+        { name: 'pi', regex: /\bpi\b/gi, value: `${Math.PI}` },
+        { name: 'e', regex: /\be\b/gi, value: `${Math.E}` },
     ];
 
     useEffect(() => {
-        const length_from = Number(formJson.range_from || 0);
-        const length_to = Number(formJson.range_to || 100);
+        const length_from = Number(formJson.range_from || -10);
+        const length_to = Number(formJson.range_to || 10);
         const step = Number(formJson.step || 0.1);
         let inputFunction = formJson.function || '';
 
         for (const { regex, replacer } of customReplacements) {
             inputFunction = inputFunction.replace(regex, replacer as any);
         }
+        console.log('Processed input:', inputFunction);
 
-        let parsedFunction;
-        try {
-            parsedFunction = parse2(inputFunction);
-        } catch (e) {
-            setData([]);
-            return;
+        const isNumber = !isNaN(Number(inputFunction.trim()));
+
+        let parsedFunction: any;
+        if (!isNumber) {
+            try {
+                parsedFunction = parse2(inputFunction);
+            } catch (e) {
+                setData([]);
+                return;
+            }
         }
 
         const usedFunctions = regexFunctionPairs.filter(pair => pair.regex.test(inputFunction));
@@ -75,20 +144,32 @@ export const Sectors: React.FC = () => {
             context[pair.name] = pair.fn;
         });
 
-        const newData = Array.from(
-            { length: Math.floor((length_to - length_from) / step) + 1 },
-            (_, index) => {
-                const x = length_from + index * step;
-                context.x = x;
-                let y = NaN;
-                try {
-                    y = eval2(parsedFunction, context);
-                } catch {
-                    y = NaN;
+        let newData;
+        if (isNumber) {
+            const yValue = Number(inputFunction.trim());
+            newData = Array.from(
+                { length: Math.floor((length_to - length_from) / step) + 1 },
+                (_, index) => {
+                    const x = length_from + index * step;
+                    return { x, y: yValue };
                 }
-                return { x, y };
-            }
-        );
+            );
+        } else {
+            newData = Array.from(
+                { length: Math.floor((length_to - length_from) / step) + 1 },
+                (_, index) => {
+                    const x = length_from + index * step;
+                    context.x = x;
+                    let y = NaN;
+                    try {
+                        y = eval2(parsedFunction, context);
+                    } catch {
+                        y = NaN;
+                    }
+                    return { x, y };
+                }
+            );
+        }
         setData(newData);
     }, [formJson]);
 
@@ -116,14 +197,16 @@ export const Sectors: React.FC = () => {
         setFormJson(formJson)
     }
 
-    const Component = switchT === '2D' ? Canvas_2D : Canvas_3D;
-    const change = switchT === '2D' ? "3D" : "2D";
+    const Canva = switchT === '2D' ? Canvas_2D : Canvas_3D;
+    const changeMode = switchT === '2D' ? "3D" : "2D";
 
     return (
         <div className="sectors">
             <div className="sector-1">
                 {/* Left Sector Canvas */}
-                <Component data={data ?? []}/>
+                <div className="plot-section">
+                    <Canva data={data ?? []}/>
+                </div>
             </div>
             <div className="sector-2">
                 {/* Right Sector Fields, Inputs, Buttons, etc. */}
@@ -132,8 +215,8 @@ export const Sectors: React.FC = () => {
             </div>
             {showPopup && (
                 <Popup
-                    title={`Are your sure you want to change to '${change}' mode?`}
-                    content="Your data will be lost"
+                    title={`Are your sure you want to change to '${changeMode}' mode?`}
+                    content="Your data will be lost."
                     onClose={handleClosePopup}
                     onConfirm={handleConfirmSwitch}
                 />

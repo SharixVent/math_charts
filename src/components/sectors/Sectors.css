@@ -14,3 +14,8 @@
 .sector-2 {
     width: 35%;
 }
+
+.plot-section {
+    width: 100%;
+    height: 1000px;
+}
