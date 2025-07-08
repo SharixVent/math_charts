@@ -2,6 +2,12 @@ import React from 'react';
 import Plot from 'react-plotly.js';
 import type { Layout }  from 'plotly.js'
 
+interface Props {
+    data: {x: number; y: number}[];
+    yMinOverride?: number;
+    yMaxOverride?: number;
+}
+
 const layout: Partial<Layout> = {
   title: { text: '3D Spiral' },
   autosize: true,
@@ -12,7 +18,8 @@ const layout: Partial<Layout> = {
   },
 };
 
-export const Canvas_3D: React.FC = () => {
+export const Canvas_3D: React.FC<Props> = ({data, yMinOverride, yMaxOverride}) => {
+    console.log(yMinOverride)
   const linspaceFn = (startValue: number, stopValue: number, cardinality: number): number[] => {
     const arr: number[] = [];
     const step = (stopValue - startValue) / (cardinality - 1);

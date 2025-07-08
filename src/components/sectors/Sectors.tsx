@@ -110,8 +110,6 @@ export const Sectors: React.FC = () => {
         { name: 'sqrt', regex: /\bsqrt\s*\(/, fn: Math.sqrt },
         { name: 'abs', regex: /\babs\s*\(/, fn: Math.abs },
         { name: 'pow', regex: /\bpow\s*\(/, fn: Math.pow },
-        { name: 'pi', regex: /\bpi\b/gi, value: `${Math.PI}` },
-        { name: 'e', regex: /\be\b/gi, value: `${Math.E}` },
     ];
 
     useEffect(() => {
@@ -143,6 +141,8 @@ export const Sectors: React.FC = () => {
         usedFunctions.forEach(pair => {
             context[pair.name] = pair.fn;
         });
+        context.E = Math.E;
+        context.PI = Math.PI;
 
         let newData;
         if (isNumber) {
@@ -197,17 +197,37 @@ export const Sectors: React.FC = () => {
         setFormJson(formJson)
     }
 
-    const Canva = switchT === '2D' ? Canvas_2D : Canvas_3D;
     const changeMode = switchT === '2D' ? "3D" : "2D";
+
+     const yMinOverride =
+    formJson.ymin !== undefined && formJson.ymin !== ''
+      ? Number(formJson.ymin)
+      : undefined;
+  const yMaxOverride =
+    formJson.ymax !== undefined && formJson.ymax !== ''
+      ? Number(formJson.ymax)
+      : undefined;
 
     return (
         <div className="sectors">
             <div className="sector-1">
                 {/* Left Sector Canvas */}
                 <div className="plot-section">
-                    <Canva data={data ?? []}/>
+                    {switchT === '2D' ? (
+                        <Canvas_2D
+                            data={data ?? []}
+                            yMinOverride={yMinOverride}
+                            yMaxOverride={yMaxOverride}
+                        />
+                        ) : (
+                        <Canvas_3D
+                            data={data ?? []}
+                            yMinOverride={yMinOverride}
+                            yMaxOverride={yMaxOverride}
+                        />
+                    )}
                 </div>
-            </div>
+            </div>  
             <div className="sector-2">
                 {/* Right Sector Fields, Inputs, Buttons, etc. */}
                 <SwitchButton text_switch={switchT} onClick={handleShowPopup}/>

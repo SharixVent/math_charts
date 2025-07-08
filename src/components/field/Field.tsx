@@ -2,7 +2,7 @@ import React from 'react';
 import './Field.css'
 
 interface Props {
-    title: string;
+    title?: string;
     placeholder?: string;
     width: number;
     name: string;
