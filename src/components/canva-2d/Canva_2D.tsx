@@ -11,7 +11,7 @@ export const Canvas_2D: React.FC<Props> = ({ data, layout }) => {
         <Plot
             data={data}
             layout={layout}
-            style={{ width: '100%', height: '100%' }}
+            style={{ width: '100%', height: '150%' }}
             useResizeHandler={true}
             config={{ displaylogo: false }}
         />
