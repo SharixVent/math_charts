@@ -10,6 +10,7 @@ interface Props {
     min?: number;
     max?: number;
     step?: number;
+    value?: number | string;
     defaultValue?: number | string;
     onChange?: React.ChangeEventHandler<HTMLInputElement>;
 }
@@ -21,7 +22,7 @@ export const Field: React.FC<Props> = (
 
     return (
         <div className='label'>
-            <label htmlFor="">{title}</label>
+            <label>{title}</label>
             <input 
                 name={name} 
                 style={{width: width}} 
