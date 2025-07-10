@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+// src/components/fieldsData/Fields.tsx
+
+import React from "react";
 import Field from "../field/Field";
-import 'katex/dist/katex.min.css';
-import { BlockMath } from 'react-katex';
-import './Fields.css';
-import AccordionField from '../accordionField/AccordionField';
+import "katex/dist/katex.min.css";
+import { BlockMath } from "react-katex";
+import "./Fields.css";
+import AccordionField from "../accordionField/AccordionField";
+import { parse as mathParse } from "mathjs";
 
 interface FieldsDataProps {
   functionsData: {
-    type: 'function' | 'equation';
+    type: "function" | "equation";
     function: string;
     equation: string;
     range_from: number;
@@ -18,82 +21,101 @@ interface FieldsDataProps {
   onFieldChange: (idx: number, field: string, value: any) => void;
   onAddFunction: () => void;
   onRemoveFunction: (idx: number) => void;
-  ymin?: number | '';
-  ymax?: number | '';
-  setYmin: (value: number | '') => void;
-  setYmax: (value: number | '') => void;
+  ymin?: number | "";
+  ymax?: number | "";
+  setYmin: (value: number | "") => void;
+  setYmax: (value: number | "") => void;
 }
 
-// --- Zaawansowany konwerter "Desmos style" (obsługa nawiasów, dzielenia, implicit multiply, pierwiastków, potęg, abs, spacji itd.) ---
-function desmosLikeLatex(expr: string): string {
-  let out = expr;
+// --- mathjs → LaTeX converter with fallback ---
+function toLatex(expr: string): string {
+  try {
+    const node = mathParse(expr);
+    return node.toTex({ parenthesis: "keep", implicit: "show" });
+  } catch {
+    return expr;
+  }
+}
 
-  // Zamień znaki ≤ ≥ ≠ na LaTeX
-  out = out.replace(/<=/g, '\\leq');
-  out = out.replace(/>=/g, '\\geq');
-  out = out.replace(/!=/g, '\\neq');
-  out = out.replace(/==/g, '=');
+function detectCircleParams(equation: string) {
+  const eq = equation.replace(/\s+/g, "");
+  const re =
+    /^(?:\(?x([+-]\d*\.?\d+)\)?\^2|x\^2)\+(?:\(?y([+-]\d*\.?\d+)\)?\^2|y\^2)=([\d.]+)(?:\^2)?$/;
+  const m = eq.match(re);
+  if (!m) return null;
 
-  // |...| na \left|...\right|
-  out = out.replace(/\|([^\|]+)\|/g, (_m, inside) => `\\left|${desmosLikeLatex(inside)}\\right|`);
+  const [, sx, sy, rOrR2] = m;
 
-  // sqrt(...) lub √(...) na \sqrt{...}
-  out = out.replace(/sqrt\(([^\)]+)\)/g, (_m, inside) => `\\sqrt{${desmosLikeLatex(inside)}}`);
-  out = out.replace(/√\(([^\)]+)\)/g, (_m, inside) => `\\sqrt{${desmosLikeLatex(inside)}}`);
+  const centerX = sx ? -parseFloat(sx) : 0;
+  const centerY = sy ? -parseFloat(sy) : 0;
+  let radius = parseFloat(rOrR2);
 
-  // Funkcje (sin, cos...) na \sin...
-  out = out.replace(/\b(sin|cos|tan|log|ln|exp|arcsin|arccos|arctan)\b/g, '\\$1');
+  if (!eq.includes(`=${rOrR2}^2`)) {
+    radius = Math.sqrt(radius);
+  }
+  return { centerX, centerY, radius };
+}
 
-  // Pi
-  out = out.replace(/\bpi\b/g, '\\pi');
-  out = out.replace(/\be\b/g, 'e');
+function parseNumPow(raw: string): number {
+  const [base, exp] = raw.split("^").map((s) => parseFloat(s));
+  return exp != null ? Math.pow(base, exp) : base;
+}
 
-  // --- UŁAMKI ---
-  // Najpierw wielkie ułamki: (coś)/(coś)
-  // UWAGA: nie łapie zagnieżdżonych nawiasów, ale to bardzo trudny przypadek bez parsera
-  out = out.replace(/\(([^\(\)]+)\)\/\(([^\(\)]+)\)/g, (_m, licz, mian) =>
-    `\\frac{${desmosLikeLatex(licz)}}{${desmosLikeLatex(mian)}}`
-  );
+function detectEllipseParams(equation: string) {
+  const eq = equation.replace(/\s+/g, "");
+  const re =
+    /^\(?x([+-]\d+(?:\.\d+)?)?\)\^2\/(\d+(?:\.\d+)?(?:\^\d+(?:\.\d+)?)?)\+\(?y([+-]\d+(?:\.\d+)?)?\)\^2\/(\d+(?:\.\d+)?(?:\^\d+(?:\.\d+)?)?)=(\d+(?:\.\d+)?(?:\^\d+(?:\.\d+)?)?)$/;
+  const m = eq.match(re);
+  if (!m) return null;
+  const [, sx, Araw, sy, Braw, Craw] = m;
+  const centerX = sx ? -parseFloat(sx) : 0;
+  const centerY = sy ? -parseFloat(sy) : 0;
+  const A = parseNumPow(Araw),
+    B = parseNumPow(Braw),
+    C = parseNumPow(Craw);
+  if ([A, B, C].some((v) => isNaN(v) || v <= 0)) return null;
 
-  // Następnie liczba/zmienna/nawias / liczba/zmienna/nawias
-  out = out.replace(/([a-zA-Z0-9\}\)]+)\/([a-zA-Z0-9\{\(\\]+)/g, (_m, a, b) =>
-    `\\frac{${a}}{${b}}`
-  );
+  const a = Math.sqrt(A * C),
+    b = Math.sqrt(B * C);
+  return { centerX, centerY, a, b };
+}
 
-  // --- IMPLICIT MULTIPLY ---
-  // liczba/zmienna/nawias + spacja + litera/func/nawias
-  out = out.replace(/(\d+(?:\.\d+)?|\b[a-zA-Z_]\w*\b|\))\s+(\(?[a-zA-Z_]\w*\b|\()/g,
-    (_m, left, right) => `${left} ${right}`
-  );
+function handleAutoRange(
+  idx: number,
+  functionsData: FieldsDataProps["functionsData"],
+  onFieldChange: FieldsDataProps["onFieldChange"]
+) {
+  const entry = functionsData[idx];
+  if (entry.type !== "equation") return;
 
-  // litera spacja litera
-  out = out.replace(/([a-zA-Z_])\s+([a-zA-Z_])/g,
-    (_m, left, right) => `${left} ${right}`
-  );
+  const circ = detectCircleParams(entry.equation);
+  if (circ) {
+    const { centerX, centerY, radius } = circ;
+    const x0 = centerX - radius,
+      x1 = centerX + radius;
+    const y0 = centerY - radius,
+      y1 = centerY + radius;
+    onFieldChange(idx, "range_from", Math.floor(Math.min(x0, y0)) - 1);
+    onFieldChange(idx, "range_to", Math.ceil(Math.max(x1, y1)) + 1);
+    return;
+  }
 
-  // --- POTĘGI ---
-  // x^(cos(x^2)) na x^{\cos(x^{2})}
-  out = out.replace(/(\)|[a-zA-Z0-9_])\^\(([^\)]+)\)/g, (_m, base, exp) =>
-    `${base}^{${desmosLikeLatex(exp)}}`
-  );
-  // x^sin(x) na x^{\sin(x)}
-  out = out.replace(/(\)|[a-zA-Z0-9_])\^([a-zA-Z]+)\(([^\)]*)\)/g, (_m, base, func, inside) =>
-    `${base}^{\\${func}(${desmosLikeLatex(inside)})}`
-  );
-  // x^a (a = liczba/zmienna)
-  out = out.replace(/(\)|[a-zA-Z0-9_])\^([a-zA-Z0-9]+)/g, (_m, base, exp) => `${base}^{${exp}}`);
+  const ell = detectEllipseParams(entry.equation);
+  if (ell) {
+    const { centerX, centerY, a, b } = ell;
+    const pad = Math.max(Math.min(Math.max(a, b) * 0.1, 12), 1.5);
+    const x0 = centerX - a - pad,
+      x1 = centerX + a + pad;
+    const y0 = centerY - b - pad,
+      y1 = centerY + b + pad;
+    const low = Math.floor(Math.min(x0, y0));
+    const high = Math.ceil(Math.max(x1, y1));
+    onFieldChange(idx, "range_from", low);
+    onFieldChange(idx, "range_to", high);
+    return;
+  }
 
-  // Usuwanie * (użytkownik może pisać *, ale podgląd desmosowy wyświetla bez)
-  out = out.replace(/\*/g, ' ');
-
-  // Spacje przed zmiennymi po liczbie/ułamku: 2x → 2 x, \frac{1}{2}x → \frac{1}{2} x
-  out = out.replace(/([0-9\}])([a-zA-Z\(])/g, '$1 $2');
-
-  // Zbędne podwójne nawiasy
-  out = out.replace(/\{\{/g, '{').replace(/\}\}/g, '}');
-  out = out.replace(/^\((.*)\)$/g, '$1');
-
-  return out;
+  alert("Nie rozpoznano klasycznego okręgu ani elipsy.");
 }
 
 const COLORS = [
@@ -106,7 +128,7 @@ const COLORS = [
   { value: "magenta", label: "Magenta" },
   { value: "cyan", label: "Cyjan" },
   { value: "brown", label: "Brązowy" },
-  { value: "pink", label: "Różowy" }
+  { value: "pink", label: "Różowy" },
 ];
 
 export const FieldsData: React.FC<FieldsDataProps> = ({
@@ -117,162 +139,252 @@ export const FieldsData: React.FC<FieldsDataProps> = ({
   ymin,
   ymax,
   setYmin,
-  setYmax
-}) => {
-  return (
-    <div className="form">
-      <div style={{ display: 'flex', gap: 20, alignItems: 'center', marginBottom: 10 }}>
-        <Field
-          title="Y min:"
-          type="number"
-          placeholder="auto"
-          width={120}
-          name="ymin"
-          value={ymin}
-          onChange={e => setYmin(e.target.value !== '' ? Number(e.target.value) : '')}
-        />
-        <Field
-          title="Y max:"
-          type="number"
-          placeholder="auto"
-          width={120}
-          name="ymax"
-          value={ymax}
-          onChange={e => setYmax(e.target.value !== '' ? Number(e.target.value) : '')}
-        />
-      </div>
-      {functionsData.map((item, idx) => (
-        <AccordionField key={idx} title={`Funkcja #${idx + 1}`}>
-          <div style={{ fontWeight: "bold", marginBottom: 4 }}>
-            Typ:{" "}
-            <select
-              value={item.type}
-              onChange={e => onFieldChange(idx, 'type', e.target.value)}
-              style={{ minWidth: 180, fontSize: 16, padding: '2px 7px', borderRadius: 7, marginLeft: 8 }}
-            >
-              <option value="function">Funkcja (np. y=x^2)</option>
-              <option value="equation">Równanie/Nierówność (np. x^2+y^2=4)</option>
-            </select>
-          </div>
-          {item.type === 'function' && (
-            <>
-              <Field
-                title="Funkcja:"
-                type="text"
-                placeholder="np. x^2"
-                width={350}
-                name="function"
-                value={item.function}
-                onChange={e => onFieldChange(idx, 'function', e.target.value)}
-              />
-              <div style={{
-                minHeight: 36,
-                marginTop: 5,
-                marginBottom: 14,
-                background: '#f8fafd',
-                borderRadius: 5,
-                padding: 8,
-                fontSize: 20,
-                boxShadow: "0 0 2px #eef"
-              }}>
-                <BlockMath math={desmosLikeLatex(item.function || '')} errorColor="#e02020" />
+  setYmax,
+}) => (
+  <div className="form">
+    {/* Y-min / Y-max */}
+    <div
+      style={{
+        display: "flex",
+        gap: 20,
+        alignItems: "center",
+        marginBottom: 10,
+      }}
+    >
+      <Field
+        title="Y min:"
+        type="number"
+        placeholder="auto"
+        width={120}
+        name="ymin"
+        value={ymin}
+        onChange={(e) =>
+          setYmin(e.target.value !== "" ? Number(e.target.value) : "")
+        }
+      />
+      <Field
+        title="Y max:"
+        type="number"
+        placeholder="auto"
+        width={120}
+        name="ymax"
+        value={ymax}
+        onChange={(e) =>
+          setYmax(e.target.value !== "" ? Number(e.target.value) : "")
+        }
+      />
+    </div>
+
+    {functionsData.map((item, idx) => (
+      <AccordionField key={idx} title={`Funkcja #${idx + 1}`}>
+        {/* type selector */}
+        <div style={{ fontWeight: 500, marginBottom: 4 }}>
+          Typ:
+          <select
+            value={item.type}
+            onChange={(e) => onFieldChange(idx, "type", e.target.value)}
+            style={{
+              marginLeft: 8,
+              minWidth: 180,
+              fontSize: 16,
+              padding: "2px 7px",
+              borderRadius: 7,
+            }}
+          >
+            <option value="function">Funkcja (np. y=x^2)</option>
+            <option value="equation">Równanie (np. x^2+y^2=4)</option>
+          </select>
+        </div>
+
+        {/* Function input */}
+        {item.type === "function" && (
+          <>
+            <Field
+              title="Funkcja:"
+              type="text"
+              placeholder="np. x^2"
+              width={350}
+              name="function"
+              value={item.function}
+              onChange={(e) => onFieldChange(idx, "function", e.target.value)}
+            />
+            {item.function.trim() !== "" && (
+              <div
+                style={{
+                  minHeight: 36,
+                  margin: "5px 0 14px",
+                  background: "#f8fafd",
+                  borderRadius: 5,
+                  padding: 8,
+                  fontSize: 20,
+                  boxShadow: "0 0 2px #eef",
+                }}
+              >
+                <BlockMath math={toLatex(item.function)} errorColor="#e02020" />
               </div>
-            </>
-          )}
-          {item.type === 'equation' && (
-            <>
-              <Field
-                title="Równanie:"
-                type="text"
-                placeholder="np. x^2 + y^2 = 4"
-                width={350}
-                name="equation"
-                value={item.equation}
-                onChange={e => onFieldChange(idx, 'equation', e.target.value)}
-              />
-              <div style={{
-                minHeight: 36,
-                marginTop: 5,
-                marginBottom: 14,
-                background: '#f8fafd',
-                borderRadius: 5,
-                padding: 8,
-                fontSize: 20,
-                boxShadow: "0 0 2px #eef"
-              }}>
-                <BlockMath math={desmosLikeLatex(item.equation || '')} errorColor="#e02020" />
+            )}
+          </>
+        )}
+
+        {/* Equation input */}
+        {item.type === "equation" && (
+          <>
+            <Field
+              title="Równanie:"
+              type="text"
+              placeholder="np. x^2 + y^2 = 4"
+              width={350}
+              name="equation"
+              value={item.equation}
+              onChange={(e) => onFieldChange(idx, "equation", e.target.value)}
+            />
+
+            {item.type === "equation" && item.equation.trim() !== "" && (
+              <div
+                style={{
+                  minHeight: 36,
+                  margin: "5px 0 14px",
+                  background: "#f8fafd",
+                  borderRadius: 5,
+                  padding: 8,
+                  fontSize: 20,
+                  boxShadow: "0 0 2px #eef",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  overflowX: "auto",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {(() => {
+                  const [lhs, rhs = ""] = item.equation.split(/=(.+)/);
+                  return (
+                    <>
+                      <BlockMath math={toLatex(lhs)} errorColor="#e02020" />
+
+                      {rhs !== "" && (
+                        <>
+                          <span>=</span>
+                          <BlockMath math={toLatex(rhs)} errorColor="#e02020" />
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
-            </>
-          )}
-          <Field
-            title="Range from:"
-            type="number"
-            placeholder="-10"
-            width={120}
-            name="range_from"
-            value={item.range_from}
-            onChange={e => onFieldChange(idx, 'range_from', e.target.value !== '' ? Number(e.target.value) : undefined)}
-          />
-          <Field
-            title="Range to:"
-            type="number"
-            placeholder="10"
-            width={120}
-            name="range_to"
-            value={item.range_to}
-            onChange={e => onFieldChange(idx, 'range_to', e.target.value !== '' ? Number(e.target.value) : undefined)}
-          />
-          <Field
-            title="Step:"
-            type="number"
-            min={0.001}
-            max={1}
-            step={0.001}
-            width={80}
-            name="step"
-            value={item.step}
-            onChange={e => onFieldChange(idx, 'step', e.target.value !== '' ? Number(e.target.value) : undefined)}
-          />
-          <div style={{ marginTop: 8, marginBottom: 8 }}>
-            <label style={{ marginRight: 8, fontWeight: 500 }}>Kolor:</label>
-            <select
-              value={item.color}
-              onChange={e => onFieldChange(idx, 'color', e.target.value)}
-              style={{
-                marginLeft: 4,
-                minHeight: 30,
-                textAlign: 'center',
-                fontSize: 20,
-                minWidth: 150,
-                backgroundColor: item.color,
-                color: 'white'
-              }}
-            >
-              {COLORS.map(c => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-            </select>
-          </div>
-          {functionsData.length > 1 && (
+            )}
+
             <button
               type="button"
-              style={{ marginTop: 6, minHeight:35, background: "#fbb", color: "#400", borderRadius: 6 }}
-              onClick={() => onRemoveFunction(idx)}
+              style={{
+                marginLeft: 10,
+                marginTop: 10,
+                fontSize: 13,
+                background: "#eef",
+                color: "#226",
+                borderRadius: 5,
+                padding: "4px 10px",
+              }}
+              onClick={() => handleAutoRange(idx, functionsData, onFieldChange)}
             >
-              Usuń tę funkcję
+              Auto range
             </button>
-          )}
-        </AccordionField>
-      ))}
-      <button
-        type="button"
-        style={{ marginTop: 12, minHeight:35, marginBottom: 16, background: "#bfb", color: "#040", borderRadius: 6, fontWeight: "bold" }}
-        onClick={onAddFunction}
-      >
-        Dodaj funkcję +
-      </button>
-    </div>
-  );
-};
+          </>
+        )}
+
+        {/* Range + Step + Color */}
+        <Field
+          title="Range from:"
+          type="number"
+          placeholder="-10"
+          width={120}
+          name="range_from"
+          value={item.range_from}
+          onChange={(e) =>
+            onFieldChange(idx, "range_from", Number(e.target.value) || 0)
+          }
+        />
+        <Field
+          title="Range to:"
+          type="number"
+          placeholder="10"
+          width={120}
+          name="range_to"
+          value={item.range_to}
+          onChange={(e) =>
+            onFieldChange(idx, "range_to", Number(e.target.value) || 0)
+          }
+        />
+        <Field
+          title="Step:"
+          type="number"
+          min={0.001}
+          max={1}
+          step={0.001}
+          width={80}
+          name="step"
+          value={item.step}
+          onChange={(e) =>
+            onFieldChange(idx, "step", Number(e.target.value) || 0)
+          }
+        />
+
+        <div style={{ margin: "8px 0" }}>
+          <label style={{ marginRight: 8, fontWeight: 500 }}>Kolor:</label>
+          <select
+            value={item.color}
+            onChange={(e) => onFieldChange(idx, "color", e.target.value)}
+            style={{
+              minHeight: 30,
+              textAlign: "center",
+              fontSize: 20,
+              minWidth: 150,
+              backgroundColor: item.color,
+              color: "white",
+            }}
+          >
+            {COLORS.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {functionsData.length > 1 && (
+          <button
+            type="button"
+            style={{
+              marginTop: 6,
+              minHeight: 35,
+              background: "#fbb",
+              color: "#400",
+              borderRadius: 6,
+            }}
+            onClick={() => onRemoveFunction(idx)}
+          >
+            Usuń tę funkcję
+          </button>
+        )}
+      </AccordionField>
+    ))}
+
+    <button
+      type="button"
+      style={{
+        marginTop: 12,
+        marginBottom: 16,
+        minHeight: 35,
+        background: "#bfb",
+        color: "#040",
+        borderRadius: 6,
+        fontWeight: "bold",
+      }}
+      onClick={onAddFunction}
+    >
+      Dodaj funkcję +
+    </button>
+  </div>
+);
 
 export default FieldsData;
