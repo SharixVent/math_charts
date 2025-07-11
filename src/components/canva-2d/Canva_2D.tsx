@@ -2,7 +2,7 @@ import React from 'react';
 import Plot from 'react-plotly.js';
 
 interface Props {
-    data: any[]; // array of traces
+    data: any[];
     layout?: any;
 }
 
