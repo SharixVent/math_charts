@@ -17,6 +17,7 @@ interface FunctionEntry {
   range_to: number;
   step: number;
   color: string;
+  label?: string;
 }
 
 function linspace(start: number, end: number, n: number): number[] {
@@ -37,6 +38,7 @@ export const Sectors: React.FC = () => {
       range_to: 20,
       step: 0.01,
       color: "blue",
+      label: "",
     },
   ]);
   const [switchT, setSwitchT] = useState<"2D" | "3D">("2D");
@@ -45,6 +47,12 @@ export const Sectors: React.FC = () => {
   const [yRange, setYRange] = useState<[number, number]>([0, 1]);
   const [ymin, setYmin] = useState<number | "">("");
   const [ymax, setYmax] = useState<number | "">("");
+  const [xAxisTitle, setXAxisTitle] = useState<string>("");
+  const [yAxisTitle, setYAxisTitle] = useState<string>("");
+  const [annotations, setAnnotations] = useState<
+    { x: number; y: number; text: string }[]
+  >([]);
+
 
   const customReplacements: Array<{
     regex: RegExp;
@@ -54,55 +62,24 @@ export const Sectors: React.FC = () => {
       regex: /(\([^()]*\)|[A-Za-z0-9_.]+)\s*\^\s*([A-Za-z0-9_.]+|\([^()]*\))/g,
       replacer: (_m, base, exp) => `pow(${base},${exp})`,
     },
-
-    {
-      regex: /\blog(\d+)\s*\(\s*([^)]+?)\s*\)/g,
-      replacer: (_m, base, expr) => `(log(${expr})/log(${base}))`,
-    },
-    {
-      regex: /(?<!log\d)\blog\s*\(\s*([^)]+?)\s*\)/g,
-      replacer: (_m, expr) => `(log(${expr})/log(10))`,
-    },
-    {
-      regex: /\bln\s*\(\s*([^)]+?)\s*\)/g,
-      replacer: (_m, expr) => `log(${expr})`,
-    },
+    { regex: /\blog(\d+)\s*\(\s*([^)]+?)\s*\)/g, replacer: (_m, base, expr) => `(log(${expr})/log(${base}))` },
+    { regex: /(?<!log\d)\blog\s*\(\s*([^)]+?)\s*\)/g, replacer: (_m, expr) => `(log(${expr})/log(10))` },
+    { regex: /\bln\s*\(\s*([^)]+?)\s*\)/g, replacer: (_m, expr) => `log(${expr})` },
     { regex: /\bsin\s*\(\s*([^)]+?)\s*\)/g, replacer: (_m, e) => `sin(${e})` },
     { regex: /\bcos\s*\(\s*([^)]+?)\s*\)/g, replacer: (_m, e) => `cos(${e})` },
     { regex: /\btan\s*\(\s*([^)]+?)\s*\)/g, replacer: (_m, e) => `tan(${e})` },
-    {
-      regex: /\bsqrt\s*\(\s*([^)]+?)\s*\)/g,
-      replacer: (_m, e) => `sqrt(${e})`,
-    },
+    { regex: /\bsqrt\s*\(\s*([^)]+?)\s*\)/g, replacer: (_m, e) => `sqrt(${e})` },
     { regex: /\babs\s*\(\s*([^)]+?)\s*\)/g, replacer: (_m, e) => `abs(${e})` },
-    {
-      regex: /\bsec\s*\(\s*([^)]+?)\s*\)/g,
-      replacer: (_m, e) => `1/cos(${e})`,
-    },
-    {
-      regex: /\bcsc\s*\(\s*([^)]+?)\s*\)/g,
-      replacer: (_m, e) => `1/sin(${e})`,
-    },
-    {
-      regex: /\bcot\s*\(\s*([^)]+?)\s*\)/g,
-      replacer: (_m, e) => `1/tan(${e})`,
-    },
+    { regex: /\bsec\s*\(\s*([^)]+?)\s*\)/g, replacer: (_m, e) => `1/cos(${e})` },
+    { regex: /\bcsc\s*\(\s*([^)]+?)\s*\)/g, replacer: (_m, e) => `1/sin(${e})` },
+    { regex: /\bcot\s*\(\s*([^)]+?)\s*\)/g, replacer: (_m, e) => `1/tan(${e})` },
     { regex: /\bexp\s*\(\s*([^)]+?)\s*\)/g, replacer: (_m, e) => `exp(${e})` },
-    {
-      regex: /(?<![A-Za-z0-9_])(\d+(?:\.\d+)?)(?=[A-Za-z_\(])/g,
-      replacer: (_m, num) => `${num}*`,
-    },
+    { regex: /(?<![A-Za-z0-9_])(\d+(?:\.\d+)?)(?=[A-Za-z_\(])/g, replacer: (_m, num) => `${num}*` },
     { regex: /\)(?=[A-Za-z_\(])/g, replacer: () => ")*" },
     { regex: /\bpi\b/gi, replacer: () => "PI" },
     { regex: /\be\b/gi, replacer: () => "E" },
-    {
-      regex: /(\d+(?:\.\d+)?|\b[a-zA-Z_]\w*\b|\))\s+(\(?[a-zA-Z_]\w*\b|\()/g,
-      replacer: (_m, left, right) => `${left}*${right}`,
-    },
-    {
-      regex: /([a-zA-Z_])\s+([a-zA-Z_])/g,
-      replacer: (_m, left, right) => `${left}*${right}`,
-    },
+    { regex: /(\d+(?:\.\d+)?|\b[a-zA-Z_]\w*\b|\))\s+(\(?[a-zA-Z_]\w*\b|\()/g, replacer: (_m, left, right) => `${left}*${right}` },
+    { regex: /([a-zA-Z_])\s+([a-zA-Z_])/g, replacer: (_m, left, right) => `${left}*${right}` },
   ];
 
   const regexFunctionPairs = [
@@ -121,228 +98,171 @@ export const Sectors: React.FC = () => {
     let globalYmin = Number.POSITIVE_INFINITY;
     let globalYmax = Number.NEGATIVE_INFINITY;
 
-    functionsData.forEach((entry) => {
-      const {
-        type,
-        function: inputFunc,
-        equation,
-        range_from,
-        range_to,
-        step,
-        color,
-      } = entry;
+    // <-- tutaj łapiemy idx!
+    functionsData.forEach((entry, idx) => {
+      const { type, function: inputFunc, equation, range_from, range_to, step, color, label } = entry;
+      const traceName = label?.trim() || (type === "function" ? inputFunc : equation);
 
+      // … [tu Twój kod dla type==='function'] …
       // FUNKCJE y = f(x)
-      if (type === "function" && inputFunc) {
-        let inputFunction = inputFunc;
+      if (type === "function" && inputFunc.trim()) {
+        let expr = inputFunc;
         for (const { regex, replacer } of customReplacements) {
-          inputFunction = inputFunction.replace(regex, replacer as any);
+          expr = expr.replace(regex, replacer as any);
         }
-        const isNumber = !isNaN(Number(inputFunction.trim()));
-        let parsedFunction: any;
+        const isNumber = !isNaN(Number(expr.trim()));
+        let ast: any;
         if (!isNumber) {
-          try {
-            parsedFunction = parse2(inputFunction);
-          } catch (e) {
-            return;
-          }
+          try { ast = parse2(expr); }
+          catch { return; }
         }
-        const usedFunctions = regexFunctionPairs.filter((pair) =>
-          pair.regex.test(inputFunction)
-        );
-        const context: Record<string, any> = {};
-        usedFunctions.forEach((pair) => {
-          context[pair.name] = pair.fn;
-        });
-        context.E = Math.E;
-        context.PI = Math.PI;
+        const ctx: Record<string, any> = { PI: Math.PI, E: Math.E };
+        regexFunctionPairs
+          .filter(p => p.regex.test(expr))
+          .forEach(p => (ctx[p.name] = p.fn));
 
-        let x: number[] = [];
-        let y: number[] = [];
-        if (isNumber) {
-          const yValue = Number(inputFunction.trim());
-          const length = Math.floor((range_to - range_from) / step) + 1;
-          x = Array.from({ length }, (_, i) => range_from + i * step);
-          y = Array.from({ length }, () => yValue);
-        } else {
-          const length = Math.floor((range_to - range_from) / step) + 1;
-          x = Array.from({ length }, (_, i) => range_from + i * step);
-          y = x.map((xVal) => {
-            context.x = xVal;
-            let yVal = NaN;
-            try {
-              yVal = eval2(parsedFunction, context);
-            } catch {
-              yVal = NaN;
-            }
-            return yVal;
-          });
+        const N = 1000;
+        const xs = linspace(range_from, range_to, N);
+        const ys = xs.map(x => {
+          if (isNumber) return Number(expr);
+          try { return eval2(ast, { x, ...ctx }); }
+          catch { return NaN; }
+        });
+
+        const finite = ys.filter(v => isFinite(v));
+        if (finite.length) {
+          globalYmin = Math.min(globalYmin, Math.min(...finite));
+          globalYmax = Math.max(globalYmax, Math.max(...finite));
         }
-        const finiteY = y.filter((v) => Number.isFinite(v));
-        const minY = finiteY.length ? Math.min(...finiteY) : 0;
-        const maxY = finiteY.length ? Math.max(...finiteY) : 0;
-        globalYmin = Math.min(globalYmin, minY);
-        globalYmax = Math.max(globalYmax, maxY);
 
         traces.push({
-          x,
-          y,
+          x: xs,
+          y: ys,
           type: "scatter",
           mode: "lines",
-          name: inputFunc,
-          marker: { color: color || "blue" },
+          name: traceName,
+          marker: { color },
+          line: {
+        color,
+        shape: 'spline',    // ← use spline interpolation
+        smoothing: 1.3 ,
+        simplify: false // ← max smoothing; you can tweak 0–1.3
+  },
+          hovertemplate:                  
+      'x: %{x:.3f}<br>y: %{y:.3f}<extra></extra>',
         });
       }
 
-      // RÓWNANIA & NIERÓWNOŚCI (implicit)
+      // ————————————————————————————— EQUATION / INEQUALITY —
       if (type === "equation" && equation.trim()) {
-        // 1) wykryj operator i podziel na LHS / RHS
-        let operator = "";
-        let parts: string[] = [];
-        if (equation.includes(">=")) {
-          operator = ">=";
-          parts = equation.split(">=");
-        } else if (equation.includes("<=")) {
-          operator = "<=";
-          parts = equation.split("<=");
-        } else if (equation.includes(">")) {
-          operator = ">";
-          parts = equation.split(">");
-        } else if (equation.includes("<")) {
-          operator = "<";
-          parts = equation.split("<");
-        } else if (equation.includes("=")) {
-          operator = "=";
-          parts = equation.split("=");
-        } else return;
-
-        let [lhs, rhs] = parts;
-        // wymień funkcje na JS-owe
+        const opMatch = equation.match(/(<=|>=|<|>|=)/);
+        if (!opMatch) return;
+        const op = opMatch[1];
+        const [lhs0, rhs0] = equation.split(op);
+        let lhs = lhs0.trim(), rhs = rhs0.trim();
         for (const { regex, replacer } of customReplacements) {
-          lhs = lhs.replace(regex, replacer as any);
-          rhs = rhs.replace(regex, replacer as any);
+          lhs = lhs.replace(regex as any, replacer as any);
+          rhs = rhs.replace(regex as any, replacer as any);
         }
+        let astL: any, astR: any;
+        try { astL = parse2(lhs); astR = parse2(rhs); }
+        catch { return; }
 
-        let astL, astR;
-        try {
-          astL = parse2(lhs);
-          astR = parse2(rhs);
-        } catch {
-          return; // nieparsowalne → pomiń
-        }
-
-        // przygotuj kontekst (sin, cos, log itd.)
-        const ctxBase: Record<string, any> = { E: Math.E, PI: Math.PI };
+        const ctxBase: Record<string, any> = { PI: Math.PI, E: Math.E };
         regexFunctionPairs
-          .filter((p) => p.regex.test(lhs + rhs))
-          .forEach((p) => {
-            ctxBase[p.name] = p.fn;
-          });
+          .filter(p => p.regex.test(lhs + rhs))
+          .forEach(p => (ctxBase[p.name] = p.fn));
 
-        // 2) ustaw siatkę
-        const N = 200;
+        const N = 500;
         const xArr = linspace(range_from, range_to, N);
         const yArr = linspace(range_from, range_to, N);
 
-        // 3) zamapuj Z = LHS-RHS
-        const Z = yArr.map((y) =>
-          xArr.map((x) => {
-            const ctx = { x, y, ...ctxBase };
-            let vL = NaN,
-              vR = NaN;
-            try {
-              vL = eval2(astL, ctx);
-            } catch {}
-            try {
-              vR = eval2(astR, ctx);
-            } catch {}
+        // compute LHS - RHS grid
+        const Z = yArr.map(y =>
+          xArr.map(x => {
+            let vL = NaN, vR = NaN;
+            try { vL = eval2(astL, { x, y, ...ctxBase }); } catch {}
+            try { vR = eval2(astR, { x, y, ...ctxBase }); } catch {}
             return vL - vR;
           })
         );
 
-        // 4) stwórz contour trace
-        if (operator === "=") {
-          // tylko poziom 0 => ładna linia
+        const lg = `ineq-${idx}`;
+        if (op === "=") {
+          // just the zero‐contour
           traces.push({
-            x: xArr,
-            y: yArr,
-            z: Z,
+            x: xArr, y: yArr, z: Z,
             type: "contour",
-            contours: {
-              coloring: "none", // bez wypełnienia
-              start: 0,
-              end: 0,
-              size: 1,
-            },
-            line: { color: color || "blue", width: 2 },
+            contours: { start: 0, end: 0, size: 1, coloring: "none" },
+            line: { color, width: 2 },
             showscale: false,
-            hoverinfo: "skip",
-            name: equation,
+            name: traceName,
+            legendgroup: lg,
+            showlegend: true,
+            hovertemplate:                  
+      'x: %{x:.3f}<br>y: %{y:.3f}<extra></extra>',
           });
         } else {
-          // nierówność: np. >, <, >=, <= — wypełnienie regionu i kontur na topie
-          // najpierw fill
+          // fill region
+          const mask = Z.map(row =>
+            row.map(v => {
+              switch (op) {
+                case "<":  return v <  0 ? 1 : 0;
+                case "<=": return v <= 0 ? 1 : 0;
+                case ">":  return v >  0 ? 1 : 0;
+                case ">=": return v >= 0 ? 1 : 0;
+              }
+            })
+          );
           traces.push({
-            x: xArr,
-            y: yArr,
-            z: Z,
-            type: "contour",
-            contours: {
-              start: 0,
-              end: 0,
-              size: 1,
-              coloring:
-                operator === ">" || operator === ">=" ? "greater" : "less",
-            },
+            x: xArr, y: yArr, z: mask,
+            type: "heatmap",
+            zsmooth: "best",
             colorscale: [
               [0, "rgba(0,0,0,0)"],
-              [1, color || "blue"],
+              [1, color]
             ],
             showscale: false,
-            hoverinfo: "skip",
-            name: equation + " " + operator,
+            name: `${traceName} ${op}`,
+            legendgroup: lg,
+            showlegend: false,
+            hovertemplate:                  
+      'x: %{x:.3f}<br>y: %{y:.3f}<extra></extra>',
           });
-          // a potem linia poziomu 0
+          // overlay the zero‐contour
           traces.push({
-            x: xArr,
-            y: yArr,
-            z: Z,
+            x: xArr, y: yArr, z: Z,
             type: "contour",
-            contours: { coloring: "none", start: 0, end: 0, size: 1 },
-            line: { color: color || "blue", width: 2 },
+            contours: { start: 0, end: 0, size: 1, coloring: "none" },
+            line: { color, width: 2 },
             showscale: false,
-            hoverinfo: "skip",
-            name: equation,
+            name: traceName,
+            legendgroup: lg,
+            showlegend: true,
+            hovertemplate:                  
+      'x: %{x:.3f}<br>y: %{y:.3f}<extra></extra>',
           });
         }
 
-        // opcjonalnie: aktualizuj globalne Y-min/max
+        // update autoscale
         globalYmin = Math.min(globalYmin, range_from);
         globalYmax = Math.max(globalYmax, range_to);
       }
     });
 
     setYRange([
-      ymin !== "" && ymin !== undefined
-        ? Number(ymin)
-        : isFinite(globalYmin)
-        ? globalYmin
-        : 0,
-      ymax !== "" && ymax !== undefined
-        ? Number(ymax)
-        : isFinite(globalYmax)
-        ? globalYmax
-        : 1,
+      ymin !== "" ? Number(ymin) : isFinite(globalYmin) ? globalYmin : 0,
+      ymax !== "" ? Number(ymax) : isFinite(globalYmax) ? globalYmax : 1,
     ]);
     setPlotData(traces);
   }, [functionsData, ymin, ymax]);
+
+
 
   const handleConfirmSwitch = () => {
     setSwitchT((prev) => (prev === "2D" ? "3D" : "2D"));
     setShowPopup(false);
   };
-  const handleShowPopup = () => setShowPopup(true);
-  const handleClosePopup = () => setShowPopup(false);
 
   const handleFieldChange = (idx: number, field: string, value: any) => {
     setFunctionsData((data) =>
@@ -368,6 +288,7 @@ export const Sectors: React.FC = () => {
         range_to: 20,
         step: 0.01,
         color: "blue",
+        label: "",
       },
     ]);
   };
@@ -378,7 +299,9 @@ export const Sectors: React.FC = () => {
     );
   };
 
-  const changeMode = switchT === "2D" ? "3D" : "2D";
+
+  const xMin = Math.min(...functionsData.map(f => f.range_from))
+    const xMax = Math.max(...functionsData.map(f => f.range_to))
 
   return (
     <div className="sectors">
@@ -389,9 +312,23 @@ export const Sectors: React.FC = () => {
               data={plotData}
               layout={{
                 autosize: true,
+                hovermode: 'closest',
                 legend: { orientation: "h", x: 0, y: 1.1 },
-                yaxis: { range: yRange, scaleratio: 1 },
-                xaxis: { scaleanchor: "y", scaleratio: 1 },
+                xaxis:{
+          title: { text: xAxisTitle || undefined },
+          range: [ xMin, xMax ],
+          scaleanchor: 'y',
+          scaleratio: 1
+        },
+        yaxis:{
+          title: { text: yAxisTitle || undefined },
+          range: yRange,
+          scaleratio: 1
+        },
+                annotations: annotations.map(a => ({
+                  x: a.x, y: a.y, text: a.text, xref: 'x', yref: 'y',
+                  showarrow: true, arrowhead: 2
+                }))
               }}
             />
           ) : (
@@ -400,7 +337,7 @@ export const Sectors: React.FC = () => {
         </div>
       </div>
       <div className="sector-2">
-        <SwitchButton text_switch={switchT} onClick={handleShowPopup} />
+        <SwitchButton text_switch={switchT} onClick={() => setShowPopup(true)} />
         <FieldsData
           functionsData={functionsData}
           onFieldChange={handleFieldChange}
@@ -410,13 +347,19 @@ export const Sectors: React.FC = () => {
           ymax={ymax}
           setYmin={setYmin}
           setYmax={setYmax}
+          xAxisTitle={xAxisTitle}
+          yAxisTitle={yAxisTitle}
+          setXAxisTitle={setXAxisTitle}
+          setYAxisTitle={setYAxisTitle}
+          annotations={annotations}
+          setAnnotations={setAnnotations}
         />
       </div>
       {showPopup && (
         <Popup
-          title={`Are you sure you want to change to '${changeMode}' mode?`}
-          content="Your data will be lost."
-          onClose={handleClosePopup}
+          title={`Switch to ${switchT === "2D" ? "3D" : "2D"}?`}
+          content="Current plot will be cleared."
+          onClose={() => setShowPopup(false)}
           onConfirm={handleConfirmSwitch}
         />
       )}
@@ -425,3 +368,4 @@ export const Sectors: React.FC = () => {
 };
 
 export default Sectors;
+
