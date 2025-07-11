@@ -10,6 +10,7 @@ interface Props {
     min?: number;
     max?: number;
     step?: number;
+    style?: React.CSSProperties;
     value?: number | string;
     defaultValue?: number | string;
     onChange?: React.ChangeEventHandler<HTMLInputElement>;
@@ -17,7 +18,7 @@ interface Props {
 
 export const Field: React.FC<Props> = (
     {title, placeholder, width, name, type, 
-    min, max, step, defaultValue, onChange
+    min, max, step, defaultValue, onChange, style
     }) => {
 
     return (
@@ -25,7 +26,7 @@ export const Field: React.FC<Props> = (
             <label>{title}</label>
             <input 
                 name={name} 
-                style={{width: width}} 
+                style={{width: width, ...style}} 
                 type={type} 
                 max={max} 
                 min={min} 
