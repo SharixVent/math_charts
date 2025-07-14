@@ -18,7 +18,7 @@ interface Props {
 
 export const Field: React.FC<Props> = (
     {title, placeholder, width, name, type, 
-    min, max, step, defaultValue, onChange, style
+    min, max, step, value, defaultValue, onChange, style
     }) => {
 
     return (
@@ -30,7 +30,8 @@ export const Field: React.FC<Props> = (
                 type={type} 
                 max={max} 
                 min={min} 
-                step={step} 
+                step={step}
+                value={value ?? ''} 
                 defaultValue={defaultValue} 
                 placeholder={placeholder}
                 onChange={onChange}
