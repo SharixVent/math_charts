@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Canva_2D from "../canva-2d/Canva_2D";
 import Canva_3D from "../canva-3d/Canva_3D";
 import SwitchButton from "../buttons/switch/Switch";
@@ -6,6 +6,7 @@ import FieldsData from "../fieldsData/Fields";
 import Popup from "../popup/Popup";
 import { parse as parse2, eval as eval2 } from "expression-eval";
 import "./Sectors.css";
+import SaveLoad from "../buttons/save_load/SaveLoad";
 
 type FunctionType = "function" | "equation";
 
@@ -98,13 +99,10 @@ export const Sectors: React.FC = () => {
     let globalYmin = Number.POSITIVE_INFINITY;
     let globalYmax = Number.NEGATIVE_INFINITY;
 
-    // <-- tutaj łapiemy idx!
     functionsData.forEach((entry, idx) => {
       const { type, function: inputFunc, equation, range_from, range_to, step, color, label } = entry;
       const traceName = label?.trim() || (type === "function" ? inputFunc : equation);
 
-      // … [tu Twój kod dla type==='function'] …
-      // FUNKCJE y = f(x)
       if (type === "function" && inputFunc.trim()) {
         let expr = inputFunc;
         for (const { regex, replacer } of customReplacements) {
@@ -144,16 +142,15 @@ export const Sectors: React.FC = () => {
           marker: { color },
           line: {
         color,
-        shape: 'spline',    // ← use spline interpolation
+        shape: 'spline',    
         smoothing: 1.3 ,
-        simplify: false // ← max smoothing; you can tweak 0–1.3
+        simplify: false 
   },
           hovertemplate:                  
       'x: %{x:.3f}<br>y: %{y:.3f}<extra></extra>',
         });
       }
 
-      // ————————————————————————————— EQUATION / INEQUALITY —
       if (type === "equation" && equation.trim()) {
         const opMatch = equation.match(/(<=|>=|<|>|=)/);
         if (!opMatch) return;
@@ -177,7 +174,6 @@ export const Sectors: React.FC = () => {
         const xArr = linspace(range_from, range_to, N);
         const yArr = linspace(range_from, range_to, N);
 
-        // compute LHS - RHS grid
         const Z = yArr.map(y =>
           xArr.map(x => {
             let vL = NaN, vR = NaN;
@@ -189,7 +185,6 @@ export const Sectors: React.FC = () => {
 
         const lg = `ineq-${idx}`;
         if (op === "=") {
-          // just the zero‐contour
           traces.push({
             x: xArr, y: yArr, z: Z,
             type: "contour",
@@ -203,7 +198,6 @@ export const Sectors: React.FC = () => {
       'x: %{x:.3f}<br>y: %{y:.3f}<extra></extra>',
           });
         } else {
-          // fill region
           const mask = Z.map(row =>
             row.map(v => {
               switch (op) {
@@ -229,7 +223,6 @@ export const Sectors: React.FC = () => {
             hovertemplate:                  
       'x: %{x:.3f}<br>y: %{y:.3f}<extra></extra>',
           });
-          // overlay the zero‐contour
           traces.push({
             x: xArr, y: yArr, z: Z,
             type: "contour",
@@ -244,7 +237,6 @@ export const Sectors: React.FC = () => {
           });
         }
 
-        // update autoscale
         globalYmin = Math.min(globalYmin, range_from);
         globalYmax = Math.max(globalYmax, range_to);
       }
@@ -264,18 +256,22 @@ export const Sectors: React.FC = () => {
     setShowPopup(false);
   };
 
-  const handleFieldChange = (idx: number, field: string, value: any) => {
-    setFunctionsData((data) =>
-      data.map((item, i) =>
-        i === idx
-          ? {
-              ...item,
-              [field]: field === "type" ? (value as FunctionType) : value,
-            }
-          : item
-      )
-    );
-  };
+  function handleFieldChange(idx: number, field: string, raw: string) {
+  setFunctionsData(data =>
+    data.map((fn, i) =>
+      i === idx
+        ? {
+            ...fn,
+            [field]:
+              field === "range_from" || field === "range_to" || field === "step"
+                ? raw 
+                : raw,
+          }
+        : fn
+    )
+  );
+}
+
 
   const addFunction = () => {
     setFunctionsData((data) => [
@@ -301,7 +297,51 @@ export const Sectors: React.FC = () => {
 
 
   const xMin = Math.min(...functionsData.map(f => f.range_from))
-    const xMax = Math.max(...functionsData.map(f => f.range_to))
+  const xMax = Math.max(...functionsData.map(f => f.range_to))
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = () => {
+    const payload = {
+      functionsData,
+      ymin, ymax,
+      xAxisTitle, yAxisTitle,
+      annotations,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "plot-data.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFileChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const json = JSON.parse(ev.target?.result as string);
+
+        if (Array.isArray(json.functionsData)) setFunctionsData(json.functionsData);
+        if (typeof json.ymin !== "undefined") setYmin(json.ymin);
+        if (typeof json.ymax !== "undefined") setYmax(json.ymax);
+        if (typeof json.xAxisTitle === "string") setXAxisTitle(json.xAxisTitle);
+        if (typeof json.yAxisTitle === "string") setYAxisTitle(json.yAxisTitle);
+        if (Array.isArray(json.annotations)) setAnnotations(json.annotations);
+      } catch {
+        alert("Nieprawidłowy format pliku JSON.");
+      }
+    };
+    reader.readAsText(file);
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
 
   return (
     <div className="sectors">
@@ -354,6 +394,17 @@ export const Sectors: React.FC = () => {
           annotations={annotations}
           setAnnotations={setAnnotations}
         />
+        <div style={{ marginTop: 16 }}>
+          <SaveLoad onClick={handleExport} style={{ marginRight: 10, marginBottom: 20 }} title={"💾 Save…"}/>
+          <SaveLoad title={"📂 Load…"} onClick={() => fileInputRef.current?.click()}/>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json"
+            style={{ display: "none", marginBottom: 20 }}
+            onChange={handleFileChosen}
+          />
+        </div>
       </div>
       {showPopup && (
         <Popup
