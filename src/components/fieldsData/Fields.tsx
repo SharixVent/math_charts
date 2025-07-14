@@ -39,7 +39,6 @@ interface FieldsDataProps {
   setAnnotations: React.Dispatch<React.SetStateAction<Annotation[]>>;
 }
 
-// --- mathjs → LaTeX converter with fallback ---
 function toLatex(expr: string): string {
   try {
     const node = mathParse(expr);
@@ -107,7 +106,7 @@ function handleAutoRange(
   const [lhsRaw, rhsRaw] = raw.split(op);
   const lhs = lhsRaw.trim();
   const rhs = rhsRaw.trim();
-  // dla detektorów traktujemy to jak zwykłe równanie
+  
   const eqForDetect = `${lhs}=${rhs}`
 
   const circ = detectCircleParams(eqForDetect);
@@ -240,21 +239,48 @@ export const FieldsData: React.FC<FieldsDataProps> = ({
             />
             {item.equation.trim() !== "" && (
               <div style={{
-                minHeight: 36, margin: "5px 0 14px",
-                background: "#f8fafd", borderRadius: 5,
-                padding: 8, fontSize: 20, boxShadow: "0 0 2px #eef",
-                display: "flex", alignItems: "center", gap: 8,
-                overflowX: "auto", whiteSpace: "nowrap"
+                minHeight: 36,
+                margin: "5px 0 14px",
+                background: "#f8fafd",
+                borderRadius: 5,
+                padding: 8,
+                fontSize: 20,
+                boxShadow: "0 0 2px #eef",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                overflowX: "auto",
+                whiteSpace: "nowrap"
               }}>
-                <BlockMath math={toLatex(
-                  item.equation
-                    .replace(/<=/g, "\\leq ")
-                    .replace(/>=/g, "\\geq ")
-                    .replace(/!=/g, "\\neq ")
-                    .replace(/==/g, "= ")
-                )} errorColor="#e02020" />
+                {(() => {
+                  const parts = item.equation.split(/(<=|>=|<|>|=)/);
+                  const [lhsRaw, opRaw, rhsRaw] = parts;
+                  if (!opRaw) {
+                    return <BlockMath math={toLatex(item.equation)} errorColor="#e02020"/>;
+                  }
+                  const opTeX: Record<string,string> = {
+                    "<":   "\\lt",
+                    "<=": "\\leq",
+                    ">":   "\\gt",
+                    ">=": "\\geq",
+                    "=":  "=",
+                  };
+
+                  const lhsTeX = toLatex(lhsRaw);
+                  const rhsTeX = toLatex(rhsRaw);
+
+                  return (
+                    <>
+                      <BlockMath math={lhsTeX}          errorColor="#e02020" />
+                      <BlockMath math={opTeX[opRaw]}    errorColor="#e02020" />
+                      <BlockMath math={rhsTeX}          errorColor="#e02020" />
+                    </>
+                  );
+                })()}
               </div>
             )}
+
+
 
             <button
               type="button"
@@ -263,6 +289,7 @@ export const FieldsData: React.FC<FieldsDataProps> = ({
             >
               Auto range
             </button>
+            {" (Works only for circle and ellipse)"}
           </>
         )}
 
@@ -279,7 +306,7 @@ export const FieldsData: React.FC<FieldsDataProps> = ({
         />
         <Field
           title="Step:" type="number" min={0.001} max={1} step={0.001} width={80}
-          name="step" defaultValue={item.step}
+          name="step" defaultValue={item.step} value={item.step}
           onChange={e => onFieldChange(idx, "step", Number(e.target.value))}
         />
 
@@ -326,7 +353,7 @@ export const FieldsData: React.FC<FieldsDataProps> = ({
             setAnnotations(a =>
               a.map((old, j) =>
                 j === i
-                  ? { ...old, x: Number(e.target.value) }  // ← parse here
+                  ? { ...old, x: Number(e.target.value) }
                   : old
               )
             )
