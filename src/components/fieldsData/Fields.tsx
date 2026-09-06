@@ -162,7 +162,6 @@ export const FieldsData: React.FC<FieldsDataProps> = ({
   annotations, setAnnotations
 }) => (
   <div className="form">
-    {/* Y‐min / Y‐max / axis titles */}
     <div style={{ display: "flex", gap: 20, alignItems: "center", marginBottom: 10 }}>
       <Field
         title="Y min:" type="number" placeholder="auto" width={120}
@@ -188,7 +187,6 @@ export const FieldsData: React.FC<FieldsDataProps> = ({
 
     {functionsData.map((item, idx) => (
       <AccordionField key={idx} title={`Funkcja #${idx+1}`}>
-        {/* optional legend label */}
         <Field
           title="Trace Label:" type="text" width={300}
           name="label" value={item.label || ""}
@@ -196,7 +194,6 @@ export const FieldsData: React.FC<FieldsDataProps> = ({
           onChange={e => onFieldChange(idx, "label", e.target.value)}
         />
 
-        {/* type selector */}
         <div style={{ fontWeight: 500, marginBottom: 4 }}>
           Typ:
           <select
@@ -209,7 +206,6 @@ export const FieldsData: React.FC<FieldsDataProps> = ({
           </select>
         </div>
 
-        {/* function‐input */}
         {item.type === "function" && (
           <>
             <Field
@@ -229,7 +225,6 @@ export const FieldsData: React.FC<FieldsDataProps> = ({
           </>
         )}
 
-        {/* equation‐input */}
         {item.type === "equation" && (
           <>
             <Field
@@ -293,7 +288,6 @@ export const FieldsData: React.FC<FieldsDataProps> = ({
           </>
         )}
 
-        {/* range / step / color */}
         <Field
           title="Range from:" type="number" placeholder="-20" width={120}
           name="range_from" value={item.range_from}
@@ -342,7 +336,6 @@ export const FieldsData: React.FC<FieldsDataProps> = ({
       Dodaj funkcję +
     </button>
 
-    {/* annotations */}
     <div style={{ fontWeight: 500, marginTop: 20 }}>Annotations</div>
     {annotations.map((ann, i) => (
       <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8 }}>

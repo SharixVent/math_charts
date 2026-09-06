@@ -409,7 +409,7 @@ export const Sectors: React.FC = () => {
       {showPopup && (
         <Popup
           title={`Switch to ${switchT === "2D" ? "3D" : "2D"}?`}
-          content="Current plot will be cleared."
+          content="Current plot will be cleared. (3D mode is not yet implemented.)"
           onClose={() => setShowPopup(false)}
           onConfirm={handleConfirmSwitch}
         />
