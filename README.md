@@ -1,7 +1,7 @@
 # 📊 Math Charts - 2D & 3D Interactive Data & Chart Visualizer
 
 <p align="center">
-  <img src="public/logo.png" alt="Math Charts" width="120" />
+  <img src="public/logo.svg" alt="Math Charts" width="120" />
 </p>
 
 <p align="center">
@@ -116,7 +116,7 @@ Projekt udostępniany na licencji MIT. Zobacz plik [LICENSE](LICENSE) po więcej
 # 📊 Math Charts – 2D & 3D Interactive Data & Chart Visualizer
 
 <p align="center">
-  <img src="public/logo.png" alt="Math Charts" width="120" />
+  <img src="public/logo.svg" alt="Math Charts" width="120" />
 </p>
 
 <p align="center">

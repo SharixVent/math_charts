@@ -6,7 +6,7 @@ function App() {
         <>
             {/* Title and logo */}
             <div className="title-sector">
-                <img src="/logo.png" className='logo' alt="Logo" />
+                <img src="/logo.svg" className='logo' alt="Logo" />
                 <div className="title">Math Charts</div>
             </div>
 
