@@ -77,7 +77,7 @@ src/
 
 1. **Sklonuj repozytorium:**
    ```bash
-   git clone [https://github.com/SharixVent/math_charts.git](https://github.com/SharixVent/math_charts.git)
+   git clone https://github.com/SharixVent/math_charts.git
    cd math_charts
    ```
 
@@ -192,7 +192,7 @@ src/
 
 1. **Clone the repository:**
    ```bash
-   git clone [https://github.com/SharixVent/math_charts.git](https://github.com/SharixVent/math_charts.git)
+   git clone https://github.com/SharixVent/math_charts.git
    cd math_charts
    ```
 
